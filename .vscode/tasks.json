@@ -1,0 +1,23 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "gcc",
+            "args": [
+                "src/main.c",
+                "-IC:/msys64/mingw64/include/SDL2",   // путь к SDL2 headers
+                "-LC:/msys64/mingw64/lib",            // путь к SDL2 libs
+                "-lmingw32",
+                "-lSDL2main",
+                "-lSDL2",
+                "-lSDL2_ttf",
+                "-o",
+                "main.exe"
+            ],
+            "group": { "kind": "build", "isDefault": true }
+        }
+    ]
+}
+
