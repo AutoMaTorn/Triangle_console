@@ -100,16 +100,9 @@ bool inside(Point p, Point a, Point b, Point c) {
     double w3 = edge(c,a,p);
     bool hasNeg = (w1 < 0) || (w2 < 0) || (w3 < 0);
     bool hasPos = (w1 > 0) || (w2 > 0) || (w3 > 0);
-    return !(hasNeg && hasPos);
+    return !(hasNeg && hasPos);  // Точка внутри, если все векторные произведения одного знака
 }
 
-// ограничение координат в пределах экрана
-static void clampToScreen(int *minx, int *maxx, int *miny, int *maxy) {
-    if (*minx < 0) *minx = 0;
-    if (*miny < 0) *miny = 0;
-    if (*maxx >= WIDTH) *maxx = WIDTH - 1;
-    if (*maxy >= HEIGHT) *maxy = HEIGHT - 1;
-}
 
 // закраска треугольника точками
 void fillTrianglePoint(SDL_Renderer *renderer, Point a, Point b, Point c) {
@@ -118,8 +111,6 @@ void fillTrianglePoint(SDL_Renderer *renderer, Point a, Point b, Point c) {
     int maxx = fmax(a.x, fmax(b.x, c.x));
     int miny = fmin(a.y, fmin(b.y, c.y));
     int maxy = fmax(a.y, fmax(b.y, c.y));
-    // обрезание экрана
-    clampToScreen(&minx, &maxx, &miny, &maxy);
 
     // Перебираем все пиксели в прямоугольнике
     for (int y = miny; y <= maxy; y++) {
@@ -200,7 +191,7 @@ int main(int argc, char *argv[]) {
             (tri.p1.y + tri.p2.y + tri.p3.y) / 3
         };
 
-        // ПРАВИЛЬНЫЙ ПОРЯДОК ПРЕОБРАЗОВАНИЙ:
+        // ПОРЯДОК ПРЕОБРАЗОВАНИЙ:
         // 1. Перенос в начало координат (относительно центра)
         // 2. Масштабирование
         // 3. Поворот  
