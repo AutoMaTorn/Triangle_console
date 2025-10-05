@@ -4,10 +4,8 @@
 #include <stdbool.h>   // тип bool
 #include <SDL2/SDL_ttf.h> // для текста
 
-
 const int WIDTH = 800;  // ширина экрана 
 const int HEIGHT = 600; // высота экрана
-
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -21,7 +19,6 @@ typedef struct { Point p1, p2, p3; } Triangle;
 
 // матрица 3 на 3
 typedef struct { double m[3][3]; } Mat3;
-
 
 // ---- МАТЕМАТИКА ----
 
@@ -43,14 +40,11 @@ Mat3 scaleMatrix(double s) {
 Mat3 rotateMatrix(double angle_deg, Point center) {
     double rad = angle_deg * M_PI / 180.0;
     double c = cos(rad), s = sin(rad);
-    Mat3 mat = identity();
-    mat.m[0][0] = c;  mat.m[0][1] = -s;
-    mat.m[1][0] = s;  mat.m[1][1] = c;
-
-    // сдвиг чтобы вращение было относительно центра
-    mat.m[0][2] = center.x - center.x*c + center.y*s;
-    mat.m[1][2] = center.y - center.x*s - center.y*c;
-    return mat;
+    return (Mat3){{
+        {c, -s, center.x*(1-c) + center.y*s},
+        {s, c, center.y*(1-c) - center.x*s},
+        {0, 0, 1}
+    }};
 }
 
 // сдвиг
@@ -77,7 +71,6 @@ Point transformPoint(Mat3 m, Point p) {
     double y = m.m[1][0]*p.x + m.m[1][1]*p.y + m.m[1][2];
     return (Point){ (int)round(x), (int)round(y) };
 }
-
 
 // ---- SDL ----
 
@@ -110,6 +103,14 @@ bool inside(Point p, Point a, Point b, Point c) {
     return !(hasNeg && hasPos);
 }
 
+// ограничение координат в пределах экрана
+static void clampToScreen(int *minx, int *maxx, int *miny, int *maxy) {
+    if (*minx < 0) *minx = 0;
+    if (*miny < 0) *miny = 0;
+    if (*maxx >= WIDTH) *maxx = WIDTH - 1;
+    if (*maxy >= HEIGHT) *maxy = HEIGHT - 1;
+}
+
 // закраска треугольника точками
 void fillTrianglePoint(SDL_Renderer *renderer, Point a, Point b, Point c) {
     int minx = fmin(a.x, fmin(b.x, c.x));
@@ -117,10 +118,7 @@ void fillTrianglePoint(SDL_Renderer *renderer, Point a, Point b, Point c) {
     int miny = fmin(a.y, fmin(b.y, c.y));
     int maxy = fmax(a.y, fmax(b.y, c.y));
 
-    if (minx < 0) minx = 0;
-    if (miny < 0) miny = 0;
-    if (maxx >= WIDTH) maxx = WIDTH - 1;
-    if (maxy >= HEIGHT) maxy = HEIGHT - 1;
+    clampToScreen(&minx, &maxx, &miny, &maxy);
 
     for (int y = miny; y <= maxy; y++) {
         for (int x = minx; x <= maxx; x++) {
@@ -131,7 +129,6 @@ void fillTrianglePoint(SDL_Renderer *renderer, Point a, Point b, Point c) {
         }
     }
 }
-
 
 // ---- MAIN ----
 int main(int argc, char *argv[]) {
@@ -158,9 +155,6 @@ int main(int argc, char *argv[]) {
     double angle = 0;   // угол поворота
     double scale = 1.0; // масштаб
     int dx = 0, dy = 0; // сдвиг 
-
-    // // центр вращения/масштабирования 
-    Point center = { WIDTH / 2, HEIGHT / 2 };
 
     // инициализация TTF
     if (TTF_Init() == -1) {
@@ -203,27 +197,10 @@ int main(int argc, char *argv[]) {
             (tri.p1.y + tri.p2.y + tri.p3.y) / 3
         };
 
-        // ПРАВИЛЬНЫЙ ПОРЯДОК ПРЕОБРАЗОВАНИЙ:
-        // 1. Перенос в начало координат (относительно центра)
-        // 2. Масштабирование
-        // 3. Поворот  
-        // 4. Перенос обратно + дополнительный сдвиг
-        Mat3 M = multiply(
-            translateMatrix(dx, dy),    // 4. конечный перенос
-
-            multiply(
-                translateMatrix(triangleCenter.x, triangleCenter.y), // 3. возврат обратно
-
-                multiply(
-                    rotateMatrix(angle, (Point){0, 0}),       // 2. поворот вокруг начала координат
-
-                    multiply(
-                        scaleMatrix(scale),                   // 1b. масштабирование
-                        translateMatrix(-triangleCenter.x, -triangleCenter.y)  // 1a. перенос в начало координат
-                    )
-                )
-            )
-        );
+        // УПРОЩЕННЫЙ ПОРЯДОК ПРЕОБРАЗОВАНИЙ:
+        Mat3 M = multiply(translateMatrix(dx, dy),
+                      multiply(rotateMatrix(angle, triangleCenter),
+                              scaleMatrix(scale)));
 
         // преобразуем вершины
         Point p1 = transformPoint(M, tri.p1);
@@ -252,12 +229,10 @@ int main(int argc, char *argv[]) {
     // очистка
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    SDL_Quit();
     TTF_CloseFont(font);
     TTF_Quit();
+    SDL_Quit();
     return 0;
 }
-
-
 
 
