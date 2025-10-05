@@ -197,10 +197,27 @@ int main(int argc, char *argv[]) {
             (tri.p1.y + tri.p2.y + tri.p3.y) / 3
         };
 
-        // УПРОЩЕННЫЙ ПОРЯДОК ПРЕОБРАЗОВАНИЙ:
-        Mat3 M = multiply(translateMatrix(dx, dy),
-                      multiply(rotateMatrix(angle, triangleCenter),
-                              scaleMatrix(scale)));
+        // ПРАВИЛЬНЫЙ ПОРЯДОК ПРЕОБРАЗОВАНИЙ:
+        // 1. Перенос в начало координат (относительно центра)
+        // 2. Масштабирование
+        // 3. Поворот  
+        // 4. Перенос обратно + дополнительный сдвиг
+        Mat3 M = multiply(
+            translateMatrix(dx, dy),    // 4. конечный перенос
+
+            multiply(
+                translateMatrix(triangleCenter.x, triangleCenter.y), // 3. возврат обратно
+
+                multiply(
+                    rotateMatrix(angle, (Point){0, 0}),       // 2. поворот вокруг начала координат
+
+                    multiply(
+                        scaleMatrix(scale),                   // 1b. масштабирование
+                        translateMatrix(-triangleCenter.x, -triangleCenter.y)  // 1a. перенос в начало координат
+                    )
+                )
+            )
+        );
 
         // преобразуем вершины
         Point p1 = transformPoint(M, tri.p1);
