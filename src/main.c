@@ -11,13 +11,10 @@ const int HEIGHT = 600; // высота экрана
 #define M_PI 3.14159265358979323846
 #endif
 
-// простая структура точек с целочисленными координатами
+// Структура точки с целочисленными координатами
 typedef struct { int x, y; } Point;
 
-// структура треугольника
-typedef struct { Point p1, p2, p3; } Triangle;
-
-// матрица 3 на 3
+// Матрица 3x3 для преобразований
 typedef struct { double m[3][3]; } Mat3;
 
 // _____________МАТЕМАТИКА______________
@@ -28,7 +25,20 @@ Mat3 identity() {
     return mat;
 }
 
-// масштабирование
+// Умножение матриц (добавленная функция)
+Mat3 matMultiply(Mat3 a, Mat3 b) {
+    Mat3 result = {{{0}}};
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < 3; k++) {
+                result.m[i][j] += a.m[i][k] * b.m[k][j];
+            }
+        }
+    }
+    return result;
+}
+
+// Матрица масштабирования
 Mat3 scaleMatrix(double s) {
     Mat3 mat = identity();
     mat.m[0][0] = s;
@@ -36,7 +46,7 @@ Mat3 scaleMatrix(double s) {
     return mat;
 }
 
-// вращение вокруг центра
+// Матрица поворота вокруг центра
 Mat3 rotateMatrix(double angle_deg, Point center) {
     double rad = angle_deg * M_PI / 180.0;
     double c = cos(rad), s = sin(rad);
@@ -47,7 +57,7 @@ Mat3 rotateMatrix(double angle_deg, Point center) {
     }};
 }
 
-// сдвиг
+// Матрица переноса
 Mat3 translateMatrix(int dx, int dy) {
     Mat3 mat = identity();
     mat.m[0][2] = dx;
@@ -55,17 +65,7 @@ Mat3 translateMatrix(int dx, int dy) {
     return mat;
 }
 
-// умножение матриц
-Mat3 multiply(Mat3 a, Mat3 b) {
-    Mat3 r = {{{0}}};
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++)
-            for (int k = 0; k < 3; k++)
-                r.m[i][j] += a.m[i][k] * b.m[k][j];
-    return r;
-}
-
-// применение матрицы к точке
+// Применение матрицы к точке
 Point transformPoint(Mat3 m, Point p) {
     double x = m.m[0][0]*p.x + m.m[0][1]*p.y + m.m[0][2];
     double y = m.m[1][0]*p.x + m.m[1][1]*p.y + m.m[1][2];
@@ -74,7 +74,7 @@ Point transformPoint(Mat3 m, Point p) {
 
 // _________________SDL___________________
 
-// вывод текста
+// Вывод текста
 void renderText(SDL_Renderer *renderer, TTF_Font *font,
                 const char *text, int x, int y) {
     SDL_Color white = {255, 255, 255, 255};
@@ -93,7 +93,7 @@ static double edge(Point a, Point b, Point c) {
     return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
 }
 
-// проверка попадания точки внутрь треугольника
+// Проверка попадания точки внутрь треугольника
 bool inside(Point p, Point a, Point b, Point c) {
     double w1 = edge(a,b,p);
     double w2 = edge(b,c,p);
@@ -103,7 +103,7 @@ bool inside(Point p, Point a, Point b, Point c) {
     return !(hasNeg && hasPos);
 }
 
-// ограничение координат в пределах экрана
+// Ограничение координат в пределах экрана
 static void clampToScreen(int *minx, int *maxx, int *miny, int *maxy) {
     if (*minx < 0) *minx = 0;
     if (*miny < 0) *miny = 0;
@@ -111,21 +111,19 @@ static void clampToScreen(int *minx, int *maxx, int *miny, int *maxy) {
     if (*maxy >= HEIGHT) *maxy = HEIGHT - 1;
 }
 
-// закраска треугольника точками
-void fillTrianglePoint(SDL_Renderer *renderer, Point a, Point b, Point c) {
-    // Находим ограничивающий прямоугольник
-    int minx = fmin(a.x, fmin(b.x, c.x));
-    int maxx = fmax(a.x, fmax(b.x, c.x));
-    int miny = fmin(a.y, fmin(b.y, c.y));
-    int maxy = fmax(a.y, fmax(b.y, c.y));
-    // обрезание экрана
+// Закраска треугольника точками
+void fillTrianglePoint(SDL_Renderer *renderer, Point points[3]) {
+    int minx = fmin(points[0].x, fmin(points[1].x, points[2].x));
+    int maxx = fmax(points[0].x, fmax(points[1].x, points[2].x));
+    int miny = fmin(points[0].y, fmin(points[1].y, points[2].y));
+    int maxy = fmax(points[0].y, fmax(points[1].y, points[2].y));
+
     clampToScreen(&minx, &maxx, &miny, &maxy);
 
-    // Перебираем все пиксели в прямоугольнике
     for (int y = miny; y <= maxy; y++) {
         for (int x = minx; x <= maxx; x++) {
             Point p = {x,y};
-            if (inside(p,a,b,c)) {
+            if (inside(p, points[0], points[1], points[2])) {
                 SDL_RenderDrawPoint(renderer,x,y);
             }
         }
@@ -135,7 +133,7 @@ void fillTrianglePoint(SDL_Renderer *renderer, Point a, Point b, Point c) {
 // ____________MAIN_______________
 
 int main(int argc, char *argv[]) {
-    // инициализация SDL
+    // Инициализация SDL
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "SDL error: %s\n", SDL_GetError());
         return 1;
@@ -149,17 +147,17 @@ int main(int argc, char *argv[]) {
     
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-    // исходный треугольник (в "локальных" координатах)
-    Triangle tri = { {500, 200}, {400, 400}, {200, 400} };
+    // Исходный треугольник (все точки в одном массиве)
+    Point trianglePoints[3] = {{500, 200}, {400, 400}, {200, 400}};
 
     bool running = true;
     SDL_Event e;
 
-    double angle = 0;   // угол поворота
-    double scale = 1.0; // масштаб
-    int dx = 0, dy = 0; // сдвиг 
+    double angle = 0;
+    double scale = 1.0;
+    int dx = 0, dy = 0;
 
-    // инициализация TTF
+    // Инициализация TTF
     if (TTF_Init() == -1) {
         fprintf(stderr, "TTF error: %s\n", TTF_GetError());
         return 1;
@@ -170,9 +168,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // главный цикл
+    // Главный цикл
     while (running) {
-        // события 
+        // Обработка событий
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) running = false;
             if (e.type == SDL_KEYDOWN) {
@@ -190,63 +188,59 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // очистка
+        // Очистка экрана
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        // ВЫЧИСЛЯЕМ ЦЕНТР ТРЕУГОЛЬНИКА В ИСХОДНЫХ КООРДИНАТАХ
+        // Вычисление центра треугольника
         Point triangleCenter = {
-            (tri.p1.x + tri.p2.x + tri.p3.x) / 3,
-            (tri.p1.y + tri.p2.y + tri.p3.y) / 3
+            (trianglePoints[0].x + trianglePoints[1].x + trianglePoints[2].x) / 3,
+            (trianglePoints[0].y + trianglePoints[1].y + trianglePoints[2].y) / 3
         };
 
-        // ПРАВИЛЬНЫЙ ПОРЯДОК ПРЕОБРАЗОВАНИЙ:
-        // 1. Перенос в начало координат (относительно центра)
-        // 2. Масштабирование
-        // 3. Поворот  
-        // 4. Перенос обратно + дополнительный сдвиг
-        Mat3 M = multiply(
-            translateMatrix(dx, dy),    // 4. конечный перенос
-
-            multiply(
-                translateMatrix(triangleCenter.x, triangleCenter.y), // 3. возврат обратно
-
-                multiply(
-                    rotateMatrix(angle, (Point){0, 0}),       // 2. поворот вокруг начала координат
-
-                    multiply(
-                        scaleMatrix(scale),                   // 1b. масштабирование
-                        translateMatrix(-triangleCenter.x, -triangleCenter.y)  // 1a. перенос в начало координат
+        // Создание матрицы преобразования
+        Mat3 transform = matMultiply(
+            translateMatrix(dx, dy),
+            matMultiply(
+                translateMatrix(triangleCenter.x, triangleCenter.y),
+                matMultiply(
+                    rotateMatrix(angle, (Point){0, 0}),
+                    matMultiply(
+                        scaleMatrix(scale),
+                        translateMatrix(-triangleCenter.x, -triangleCenter.y)
                     )
                 )
             )
         );
 
-        // преобразуем вершины
-        Point p1 = transformPoint(M, tri.p1);
-        Point p2 = transformPoint(M, tri.p2);
-        Point p3 = transformPoint(M, tri.p3);
+        // Преобразование всех точек треугольника
+        Point transformedPoints[3];
+        for (int i = 0; i < 3; i++) {
+            transformedPoints[i] = transformPoint(transform, trianglePoints[i]);
+        }
         
-        // закрашиваем треугольник точками
-        SDL_SetRenderDrawColor(renderer, 100,200,255,255);
-        fillTrianglePoint(renderer, p1,p2,p3);
+        // Отрисовка треугольника
+        SDL_SetRenderDrawColor(renderer, 100, 200, 255, 255);
+        fillTrianglePoint(renderer, transformedPoints);
 
-        // контур белым
-        SDL_SetRenderDrawColor(renderer,255,255,255,255);
-        SDL_RenderDrawLine(renderer, p1.x, p1.y, p2.x, p2.y);
-        SDL_RenderDrawLine(renderer, p2.x, p2.y, p3.x, p3.y);
-        SDL_RenderDrawLine(renderer, p3.x, p3.y, p1.x, p1.y);
+        // Контур треугольника
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        for (int i = 0; i < 3; i++) {
+            int next = (i + 1) % 3;
+            SDL_RenderDrawLine(renderer, 
+                transformedPoints[i].x, transformedPoints[i].y,
+                transformedPoints[next].x, transformedPoints[next].y);
+        }
 
-        // подсказки
+        // Подсказки управления
         renderText(renderer, font, "Arrows: Move | Q/E: Rotate | Z/X: Scale | Esc: Exit", 10, 10);
 
-        // показать результат
+        // Обновление экрана
         SDL_RenderPresent(renderer);
-
-        SDL_Delay(16); // ограничение FPS
+        SDL_Delay(16);
     }
     
-    // очистка
+    // Очистка ресурсов
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     TTF_CloseFont(font);
@@ -254,5 +248,3 @@ int main(int argc, char *argv[]) {
     SDL_Quit();
     return 0;
 }
-
-
